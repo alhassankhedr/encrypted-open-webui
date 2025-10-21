@@ -201,6 +201,12 @@ type Settings = {
 	num_batch?: string;
 	num_keep?: string;
 	options?: ModelOptions;
+
+	// Lorica encryption settings
+	loricaEnabled?: boolean;
+	loricaTrusteeUrl?: string;
+	loricaAttestationEnabled?: boolean;
+	loricaBackendUrls?: string[];
 };
 
 type ModelOptions = {

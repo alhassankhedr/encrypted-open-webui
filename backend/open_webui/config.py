@@ -1481,6 +1481,31 @@ ENABLE_USER_WEBHOOKS = PersistentConfig(
     os.environ.get("ENABLE_USER_WEBHOOKS", "True").lower() == "true",
 )
 
+# Lorica encryption settings
+LORICA_ENABLED = PersistentConfig(
+    "LORICA_ENABLED",
+    "lorica.enabled",
+    os.environ.get("LORICA_ENABLED", "False").lower() == "true",
+)
+
+LORICA_TRUSTEE_URL = PersistentConfig(
+    "LORICA_TRUSTEE_URL",
+    "lorica.trustee_url",
+    os.environ.get("LORICA_TRUSTEE_URL", "https://trustee.lorica.ai"),
+)
+
+LORICA_ATTESTATION_ENABLED = PersistentConfig(
+    "LORICA_ATTESTATION_ENABLED",
+    "lorica.attestation_enabled",
+    os.environ.get("LORICA_ATTESTATION_ENABLED", "True").lower() == "true",
+)
+
+LORICA_BACKEND_URLS = PersistentConfig(
+    "LORICA_BACKEND_URLS",
+    "lorica.backend_urls",
+    os.environ.get("LORICA_BACKEND_URLS", "").split(",") if os.environ.get("LORICA_BACKEND_URLS") else [],
+)
+
 # FastAPI / AnyIO settings
 THREAD_POOL_SIZE = os.getenv("THREAD_POOL_SIZE", None)
 

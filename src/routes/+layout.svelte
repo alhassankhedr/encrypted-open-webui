@@ -48,6 +48,17 @@
 	import { chatCompletion } from '$lib/apis/openai';
 
 	import { beforeNavigate } from '$app/navigation';
+
+	// Reactive statement to update settings when config changes
+	$: if ($config && $config.lorica) {
+		settings.update(currentSettings => ({
+			...currentSettings,
+			loricaEnabled: $config.lorica.enabled,
+			loricaTrusteeUrl: $config.lorica.trustee_url,
+			loricaAttestationEnabled: $config.lorica.attestation_enabled,
+			loricaBackendUrls: $config.lorica.backend_urls
+		}));
+	}
 	import { updated } from '$app/state';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 
@@ -596,8 +607,39 @@
 		try {
 			backendConfig = await getBackendConfig();
 			console.log('Backend config:', backendConfig);
+			
+			// Populate Lorica settings from backend config (available to all users)
+			console.log('Backend config lorica settings:', backendConfig?.lorica);
+			if (backendConfig && backendConfig.lorica) {
+				console.log('Updating settings with Lorica config:', backendConfig.lorica);
+				settings.update(currentSettings => ({
+					...currentSettings,
+					loricaEnabled: backendConfig.lorica.enabled,
+					loricaTrusteeUrl: backendConfig.lorica.trustee_url,
+					loricaAttestationEnabled: backendConfig.lorica.attestation_enabled,
+					loricaBackendUrls: backendConfig.lorica.backend_urls
+				}));
+			} else {
+				console.log('No Lorica settings found in backend config, using defaults');
+				// Use default Lorica settings
+				settings.update(currentSettings => ({
+					...currentSettings,
+					loricaEnabled: false,
+					loricaTrusteeUrl: 'https://trustee.lorica.ai',
+					loricaAttestationEnabled: true,
+					loricaBackendUrls: []
+				}));
+			}
 		} catch (error) {
 			console.error('Error loading backend config:', error);
+			// Fallback to defaults if backend is not available
+			settings.update(currentSettings => ({
+				...currentSettings,
+				loricaEnabled: false,
+				loricaTrusteeUrl: 'https://trustee.lorica.ai',
+				loricaAttestationEnabled: true,
+				loricaBackendUrls: []
+			}));
 		}
 		// Initialize i18n even if we didn't get a backend config,
 		// so `/error` can show something that's not `undefined`.
@@ -618,41 +660,8 @@
 			// Save Backend Status to Store
 			await config.set(backendConfig);
 			await WEBUI_NAME.set(backendConfig.name);
-
-			if ($config) {
-				await setupSocket($config.features?.enable_websocket ?? true);
-
-				const currentUrl = `${window.location.pathname}${window.location.search}`;
-				const encodedUrl = encodeURIComponent(currentUrl);
-
-				if (localStorage.token) {
-					// Get Session User Info
-					const sessionUser = await getSessionUser(localStorage.token).catch((error) => {
-						toast.error(`${error}`);
-						return null;
-					});
-
-					if (sessionUser) {
-						await user.set(sessionUser);
-						await config.set(await getBackendConfig());
-					} else {
-						// Redirect Invalid Session User to /auth Page
-						localStorage.removeItem('token');
-						await goto(`/auth?redirect=${encodedUrl}`);
-					}
-				} else {
-					// Don't redirect if we're already on the auth page
-					// Needed because we pass in tokens from OAuth logins via URL fragments
-					if ($page.url.pathname !== '/auth') {
-						await goto(`/auth?redirect=${encodedUrl}`);
-					}
-				}
-			}
-		} else {
-			// Redirect to /error when Backend Not Detected
-			await goto(`/error`);
 		}
-
+		
 		await tick();
 
 		if (

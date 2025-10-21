@@ -1,0 +1,20 @@
+# Full Dockerfile for Open WebUI with Lorica integration (frontend + backend)
+FROM ghcr.io/open-webui/open-webui:main
+
+# Copy our built frontend with Lorica integration
+COPY build/ /app/static/
+
+# Copy our backend changes
+COPY backend/ /app/backend/
+
+# Install any missing Python dependencies
+RUN pip install typer
+
+# Set the correct permissions
+RUN chown -R 1000:1000 /app/static/ /app/backend/
+
+# Expose the port
+EXPOSE 8080
+
+# Use the same entrypoint as the original image
+CMD ["bash", "start.sh"]

@@ -1,4 +1,18 @@
 import { OLLAMA_API_BASE_URL } from '$lib/constants';
+import { loricaFetch } from '$lib/lorica/simple';
+import { settings } from '$lib/stores';
+import { get } from 'svelte/store';
+
+/**
+ * Get Lorica configuration from settings
+ */
+function getLoricaConfig() {
+	const currentSettings = get(settings);
+	return {
+		enabled: currentSettings.loricaEnabled || false,
+		backendUrls: currentSettings.loricaBackendUrls || []
+	};
+}
 
 export const verifyOllamaConnection = async (token: string = '', connection: dict = {}) => {
 	let error = null;
@@ -334,7 +348,12 @@ export const generateChatCompletion = async (token: string = '', body: object) =
 	const controller = new AbortController();
 	let error = null;
 
-	const res = await fetch(`${OLLAMA_API_BASE_URL}/api/chat`, {
+	const loricaConfig = getLoricaConfig();
+	const fetchUrl = `${OLLAMA_API_BASE_URL}/api/chat`;
+	
+	// Use Lorica encryption if enabled
+	const fetchFn = loricaConfig.enabled ? loricaFetch : fetch;
+	const fetchOptions = {
 		signal: controller.signal,
 		method: 'POST',
 		headers: {
@@ -343,7 +362,9 @@ export const generateChatCompletion = async (token: string = '', body: object) =
 			Authorization: `Bearer ${token}`
 		},
 		body: JSON.stringify(body)
-	}).catch((err) => {
+	};
+
+	const res = await fetchFn(fetchUrl, fetchOptions, loricaConfig.backendUrls).catch((err) => {
 		error = err;
 		return null;
 	});

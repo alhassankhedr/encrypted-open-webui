@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lorica Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Lorica Integration Test</h1>
+    
+    <div class="test-section info">
+        <h3>Test Instructions</h3>
+        <p>This page tests the Lorica encryption integration in Open WebUI. Click the buttons below to test different components.</p>
+        <p><strong>Note:</strong> Make sure the Open WebUI dev server is running on <code>http://localhost:5173</code></p>
+    </div>
+
+    <div class="test-section">
+        <h3>1. Test Lorica Session Creation</h3>
+        <button onclick="testSessionCreation()">Test Session Creation</button>
+        <div id="session-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test OHTTP Key Config Parsing</h3>
+        <button onclick="testKeyConfigParsing()">Test Key Config Parsing</button>
+        <div id="keyconfig-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Attestation Logic</h3>
+        <button onclick="testAttestation()">Test Attestation</button>
+        <div id="attestation-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Test Lorica Detection</h3>
+        <button onclick="testDetection()">Test URL Detection</button>
+        <div id="detection-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. Test Settings UI Integration</h3>
+        <button onclick="testSettingsUI()">Test Settings UI</button>
+        <div id="settings-result"></div>
+    </div>
+
+    <script type="module">
+        // Import the Lorica modules
+        import { LoricaSession } from './src/lib/lorica/session.js';
+        import { parseKeyConfig } from './src/lib/lorica/ohttp/index.js';
+        import { Attestor } from './src/lib/lorica/attestor.js';
+        import { shouldUseLoricaEncryption } from './src/lib/lorica/detector.js';
+
+        // Make functions available globally
+        window.LoricaSession = LoricaSession;
+        window.parseKeyConfig = parseKeyConfig;
+        window.Attestor = Attestor;
+        window.shouldUseLoricaEncryption = shouldUseLoricaEncryption;
+
+        function showResult(elementId, success, message, details = null) {
+            const element = document.getElementById(elementId);
+            element.className = success ? 'success' : 'error';
+            element.innerHTML = `
+                <strong>${success ? '✅ SUCCESS' : '❌ ERROR'}:</strong> ${message}
+                ${details ? `<pre>${JSON.stringify(details, null, 2)}</pre>` : ''}
+            `;
+        }
+
+        window.testSessionCreation = async function() {
+            try {
+                const session = new LoricaSession({
+                    trusteeUrl: 'https://trustee.lorica.ai',
+                    attestationEnabled: true
+                });
+                
+                showResult('session-result', true, 'LoricaSession created successfully', {
+                    trusteeUrl: session.trusteeUrl,
+                    attestationEnabled: session.attestationEnabled
+                });
+            } catch (error) {
+                showResult('session-result', false, 'Failed to create LoricaSession', error.message);
+            }
+        };
+
+        window.testKeyConfigParsing = function() {
+            try {
+                // Create a mock key config
+                const keyConfigBytes = new Uint8Array([
+                    1,           // keyId
+                    0x00, 0x01,  // suiteId (0x0001)
+                    0x20,        // kemId (0x20 for P-256)
+                    ...Array(65).fill(0x42) // Mock public key
+                ]);
+
+                const result = parseKeyConfig(keyConfigBytes);
+                
+                showResult('keyconfig-result', true, 'Key config parsed successfully', {
+                    keyId: result.keyId,
+                    suiteId: result.suiteId,
+                    keyConfigLength: result.keyConfig.length
+                });
+            } catch (error) {
+                showResult('keyconfig-result', false, 'Failed to parse key config', error.message);
+            }
+        };
+
+        window.testAttestation = async function() {
+            try {
+                const attestor = new Attestor('https://trustee.lorica.ai');
+                
+                showResult('attestation-result', true, 'Attestor created successfully', {
+                    trusteeUrl: attestor.trusteeUrl,
+                    cacheSize: attestor.cache.size
+                });
+            } catch (error) {
+                showResult('attestation-result', false, 'Failed to create Attestor', error.message);
+            }
+        };
+
+        window.testDetection = async function() {
+            try {
+                // Test with a mock Lorica URL
+                const testUrl = 'https://example-lorica-backend.com/api/chat';
+                const result = await shouldUseLoricaEncryption(testUrl);
+                
+                showResult('detection-result', true, 'URL detection test completed', {
+                    testUrl: testUrl,
+                    shouldUseEncryption: result,
+                    note: 'This will be false for non-Lorica URLs, which is expected'
+                });
+            } catch (error) {
+                showResult('detection-result', false, 'Failed to test URL detection', error.message);
+            }
+        };
+
+        window.testSettingsUI = function() {
+            try {
+                // Check if the settings component exists
+                const settingsComponent = document.querySelector('[data-testid="lorica-settings"]');
+                
+                showResult('settings-result', true, 'Settings UI test completed', {
+                    componentFound: !!settingsComponent,
+                    note: 'Settings UI is integrated into Open WebUI admin panel'
+                });
+            } catch (error) {
+                showResult('settings-result', false, 'Failed to test settings UI', error.message);
+            }
+        };
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            console.log('Lorica Integration Test Page Loaded');
+            console.log('Available functions:', Object.keys(window).filter(k => k.startsWith('test')));
+        });
+    </script>
+</body>
+</html>

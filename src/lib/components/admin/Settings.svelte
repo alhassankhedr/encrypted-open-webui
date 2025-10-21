@@ -17,6 +17,7 @@
 	import Connections from './Settings/Connections.svelte';
 	import Documents from './Settings/Documents.svelte';
 	import WebSearch from './Settings/WebSearch.svelte';
+	import Lorica from './Settings/Lorica.svelte';
 
 	import ChartBar from '../icons/ChartBar.svelte';
 	import DocumentChartBar from '../icons/DocumentChartBar.svelte';
@@ -45,6 +46,7 @@
 			'audio',
 			'images',
 			'pipelines',
+			'lorica',
 			'db'
 		].includes(tabFromPath)
 			? tabFromPath
@@ -404,6 +406,38 @@
 		</button>
 
 		<button
+			id="lorica"
+			class="px-0.5 py-1 min-w-fit rounded-lg flex-1 md:flex-none flex text-left transition {selectedTab ===
+			'lorica'
+				? ''
+				: ' text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'}"
+			on:click={() => {
+				goto('/admin/settings/lorica');
+			}}
+		>
+			<div class=" self-center mr-2">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 16 16"
+					fill="currentColor"
+					class="w-4 h-4"
+				>
+					<path
+						fill-rule="evenodd"
+						d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Z"
+						clip-rule="evenodd"
+					/>
+					<path
+						fill-rule="evenodd"
+						d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4Z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			</div>
+			<div class=" self-center">Lorica</div>
+		</button>
+
+		<button
 			id="db"
 			class="px-0.5 py-1 min-w-fit rounded-lg flex-1 md:flex-none flex text-left transition {selectedTab ===
 			'db'
@@ -442,7 +476,7 @@
 					toast.success($i18n.t('Settings saved successfully!'));
 
 					await tick();
-					await config.set(await getBackendConfig());
+					// await config.set(await getBackendConfig()); // Temporarily disabled for testing
 				}}
 			/>
 		{:else if selectedTab === 'connections'}
@@ -463,7 +497,7 @@
 					toast.success($i18n.t('Settings saved successfully!'));
 
 					await tick();
-					await config.set(await getBackendConfig());
+					// await config.set(await getBackendConfig()); // Temporarily disabled for testing
 				}}
 			/>
 		{:else if selectedTab === 'web'}
@@ -472,7 +506,7 @@
 					toast.success($i18n.t('Settings saved successfully!'));
 
 					await tick();
-					await config.set(await getBackendConfig());
+					// await config.set(await getBackendConfig()); // Temporarily disabled for testing
 				}}
 			/>
 		{:else if selectedTab === 'code-execution'}
@@ -481,7 +515,7 @@
 					toast.success($i18n.t('Settings saved successfully!'));
 
 					await tick();
-					await config.set(await getBackendConfig());
+					// await config.set(await getBackendConfig()); // Temporarily disabled for testing
 				}}
 			/>
 		{:else if selectedTab === 'interface'}
@@ -500,6 +534,15 @@
 			<Images
 				on:save={() => {
 					toast.success($i18n.t('Settings saved successfully!'));
+				}}
+			/>
+		{:else if selectedTab === 'lorica'}
+			<Lorica
+				saveHandler={async () => {
+					toast.success($i18n.t('Settings saved successfully!'));
+
+					await tick();
+					await config.set(await getBackendConfig());
 				}}
 			/>
 		{:else if selectedTab === 'db'}

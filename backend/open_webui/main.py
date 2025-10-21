@@ -93,6 +93,7 @@ from open_webui.routers import (
     users,
     utils,
     scim,
+    lorica,
 )
 
 from open_webui.routers.retrieval import (
@@ -1317,6 +1318,9 @@ app.include_router(
 )
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
 
+# Lorica proxy API for encrypted AI inference
+app.include_router(lorica.router, prefix="/api/v1/lorica", tags=["lorica"])
+
 # SCIM 2.0 API for identity management
 if SCIM_ENABLED:
     app.include_router(scim.router, prefix="/api/v1/scim/v2", tags=["scim"])
@@ -1818,6 +1822,12 @@ async def get_app_config(request: Request):
                     "pending_user_overlay_title": app.state.config.PENDING_USER_OVERLAY_TITLE,
                     "pending_user_overlay_content": app.state.config.PENDING_USER_OVERLAY_CONTENT,
                     "response_watermark": app.state.config.RESPONSE_WATERMARK,
+                },
+                "lorica": {
+                    "enabled": False,
+                    "trustee_url": "https://trustee.lorica.ai",
+                    "attestation_enabled": True,
+                    "backend_urls": [],
                 },
                 "license_metadata": app.state.LICENSE_METADATA,
                 **(

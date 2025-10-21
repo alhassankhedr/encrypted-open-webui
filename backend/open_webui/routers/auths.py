@@ -839,6 +839,11 @@ async def get_admin_config(request: Request, user=Depends(get_admin_user)):
         "PENDING_USER_OVERLAY_TITLE": request.app.state.config.PENDING_USER_OVERLAY_TITLE,
         "PENDING_USER_OVERLAY_CONTENT": request.app.state.config.PENDING_USER_OVERLAY_CONTENT,
         "RESPONSE_WATERMARK": request.app.state.config.RESPONSE_WATERMARK,
+        # Lorica encryption settings
+        "loricaEnabled": request.app.state.config.LORICA_ENABLED.value,
+        "loricaTrusteeUrl": request.app.state.config.LORICA_TRUSTEE_URL.value,
+        "loricaAttestationEnabled": request.app.state.config.LORICA_ATTESTATION_ENABLED.value,
+        "loricaBackendUrls": request.app.state.config.LORICA_BACKEND_URLS.value,
     }
 
 
@@ -859,6 +864,12 @@ class AdminConfig(BaseModel):
     PENDING_USER_OVERLAY_TITLE: Optional[str] = None
     PENDING_USER_OVERLAY_CONTENT: Optional[str] = None
     RESPONSE_WATERMARK: Optional[str] = None
+    
+    # Lorica encryption settings
+    loricaEnabled: Optional[bool] = None
+    loricaTrusteeUrl: Optional[str] = None
+    loricaAttestationEnabled: Optional[bool] = None
+    loricaBackendUrls: Optional[list] = None
 
 
 @router.post("/admin/config")
@@ -905,6 +916,16 @@ async def update_admin_config(
 
     request.app.state.config.RESPONSE_WATERMARK = form_data.RESPONSE_WATERMARK
 
+    # Handle Lorica encryption settings
+    if form_data.loricaEnabled is not None:
+        request.app.state.config.LORICA_ENABLED.value = form_data.loricaEnabled
+    if form_data.loricaTrusteeUrl is not None:
+        request.app.state.config.LORICA_TRUSTEE_URL.value = form_data.loricaTrusteeUrl
+    if form_data.loricaAttestationEnabled is not None:
+        request.app.state.config.LORICA_ATTESTATION_ENABLED.value = form_data.loricaAttestationEnabled
+    if form_data.loricaBackendUrls is not None:
+        request.app.state.config.LORICA_BACKEND_URLS.value = form_data.loricaBackendUrls
+
     return {
         "SHOW_ADMIN_DETAILS": request.app.state.config.SHOW_ADMIN_DETAILS,
         "WEBUI_URL": request.app.state.config.WEBUI_URL,
@@ -922,6 +943,11 @@ async def update_admin_config(
         "PENDING_USER_OVERLAY_TITLE": request.app.state.config.PENDING_USER_OVERLAY_TITLE,
         "PENDING_USER_OVERLAY_CONTENT": request.app.state.config.PENDING_USER_OVERLAY_CONTENT,
         "RESPONSE_WATERMARK": request.app.state.config.RESPONSE_WATERMARK,
+        # Lorica encryption settings
+        "loricaEnabled": request.app.state.config.LORICA_ENABLED.value,
+        "loricaTrusteeUrl": request.app.state.config.LORICA_TRUSTEE_URL.value,
+        "loricaAttestationEnabled": request.app.state.config.LORICA_ATTESTATION_ENABLED.value,
+        "loricaBackendUrls": request.app.state.config.LORICA_BACKEND_URLS.value,
     }
 
 

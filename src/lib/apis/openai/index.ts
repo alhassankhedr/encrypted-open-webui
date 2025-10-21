@@ -1,4 +1,18 @@
 import { OPENAI_API_BASE_URL, WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+import { loricaFetch } from '$lib/lorica/simple';
+import { settings } from '$lib/stores';
+import { get } from 'svelte/store';
+
+/**
+ * Get Lorica configuration from settings
+ */
+function getLoricaConfig() {
+	const currentSettings = get(settings);
+	return {
+		enabled: currentSettings.loricaEnabled || false,
+		backendUrls: currentSettings.loricaBackendUrls || []
+	};
+}
 
 export const getOpenAIConfig = async (token: string = '') => {
 	let error = null;
@@ -338,7 +352,12 @@ export const chatCompletion = async (
 	const controller = new AbortController();
 	let error = null;
 
-	const res = await fetch(`${url}/chat/completions`, {
+	const loricaConfig = getLoricaConfig();
+	const fetchUrl = `${url}/chat/completions`;
+	
+	// Use Lorica encryption if enabled
+	const fetchFn = loricaConfig.enabled ? loricaFetch : fetch;
+	const fetchOptions = {
 		signal: controller.signal,
 		method: 'POST',
 		headers: {
@@ -346,7 +365,9 @@ export const chatCompletion = async (
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify(body)
-	}).catch((err) => {
+	};
+
+	const res = await fetchFn(fetchUrl, fetchOptions, loricaConfig.backendUrls).catch((err) => {
 		console.error(err);
 		error = err;
 		return null;
@@ -366,7 +387,12 @@ export const generateOpenAIChatCompletion = async (
 ) => {
 	let error = null;
 
-	const res = await fetch(`${url}/chat/completions`, {
+	const loricaConfig = getLoricaConfig();
+	const fetchUrl = `${url}/chat/completions`;
+	
+	// Use Lorica encryption if enabled
+	const fetchFn = loricaConfig.enabled ? loricaFetch : fetch;
+	const fetchOptions = {
 		method: 'POST',
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -374,7 +400,9 @@ export const generateOpenAIChatCompletion = async (
 		},
 		credentials: 'include',
 		body: JSON.stringify(body)
-	})
+	};
+
+	const res = await fetchFn(fetchUrl, fetchOptions, loricaConfig.backendUrls)
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
 			return res.json();

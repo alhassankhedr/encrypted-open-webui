@@ -3,7 +3,7 @@ import { browser, dev } from '$app/environment';
 
 export const APP_NAME = 'Open WebUI';
 
-export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:8080` : ``) : '';
+export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:3000` : ``) : '';
 export const WEBUI_BASE_URL = browser ? (dev ? `http://${WEBUI_HOSTNAME}` : ``) : ``;
 export const WEBUI_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1`;
 
@@ -16,6 +16,11 @@ export const RETRIEVAL_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/retrieval`;
 export const WEBUI_VERSION = APP_VERSION;
 export const WEBUI_BUILD_HASH = APP_BUILD_HASH;
 export const REQUIRED_OLLAMA_VERSION = '0.1.16';
+
+// Lorica encryption constants
+export const LORICA_DEFAULT_TRUSTEE_URL = 'https://trustee.lorica.ai';
+export const LORICA_DISCOVER_PATH = '/discover';
+export const LORICA_TOKEN_PATH = '/token';
 
 export const SUPPORTED_FILE_TYPE = [
 	'application/epub+zip',
@@ -94,6 +99,7 @@ export const SUPPORTED_FILE_EXTENSIONS = [
 	'ppt',
 	'msg'
 ];
+
 
 export const PASTED_TEXT_CHARACTER_LIMIT = 1000;
 
