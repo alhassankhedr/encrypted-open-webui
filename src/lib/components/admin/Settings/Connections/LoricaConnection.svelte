@@ -41,6 +41,7 @@
 	connection={{
 		url,
 		key,
+		modelId: config?.modelId || '',
 		config
 	}}
 	onDelete={() => {

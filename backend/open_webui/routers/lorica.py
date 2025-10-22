@@ -116,6 +116,76 @@ async def update_lorica_config(
         raise HTTPException(status_code=500, detail=f"Failed to update configuration: {e}")
 
 
+class LoricaConnectionTestForm(BaseModel):
+    url: str
+    key: str
+    model_id: str
+
+
+@router.post("/test_connection")
+async def test_lorica_connection_endpoint(
+    form_data: LoricaConnectionTestForm,
+    user: UserModel = Depends(get_current_user)
+) -> LoricaAttestationResponse:
+    """Test Lorica connection with provided URL and key."""
+    try:
+        # Test connection and get attestation
+        connection_result = await test_lorica_connection(form_data.url, form_data.key, form_data.model_id)
+        
+        if connection_result["connected"]:
+            attestation = connection_result.get("attestation", {})
+            return LoricaAttestationResponse(
+                verified=attestation.get("verified", False),
+                trust_level=attestation.get("trust_level"),
+                timestamp=attestation.get("timestamp"),
+                error=attestation.get("error"),
+                service_url=form_data.url
+            )
+        else:
+            return LoricaAttestationResponse(
+                verified=False,
+                error=connection_result.get("error", "Connection failed"),
+                service_url=form_data.url
+            )
+            
+    except Exception as e:
+        logger.error(f"Connection test failed: {e}")
+        return LoricaAttestationResponse(
+            verified=False,
+            error=str(e),
+            service_url=form_data.url
+        )
+
+
+@router.post("/models_direct")
+async def get_lorica_models_direct(
+    form_data: LoricaConnectionTestForm,
+    user: UserModel = Depends(get_current_user)
+) -> LoricaModelsResponse:
+    """Get available Lorica models for provided URL and key."""
+    try:
+        async with AsyncLoricaSession(form_data.url, form_data.key, form_data.model_id) as session:
+            models = await session.get_models()
+            
+            formatted_models = []
+            for model in models:
+                formatted_models.append(LoricaModel(
+                    id=model["id"],
+                    name=model["name"],
+                    description=model["description"],
+                    context_length=model["context_length"],
+                    provider=model["provider"],
+                    enabled=model["enabled"],
+                    lorica_encrypted=model["lorica_encrypted"]
+                ))
+            
+            return LoricaModelsResponse(models=formatted_models)
+            
+    except Exception as e:
+        logger.error(f"Failed to get Lorica models: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get models: {str(e)}")
+
+
 @router.post("/verify/{url_idx}")
 async def verify_lorica_attestation(
     url_idx: int,

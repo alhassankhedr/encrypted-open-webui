@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
-	import { getContext, onMount } from 'svelte';
+	import { getContext } from 'svelte';
 	const i18n = getContext('i18n');
 
 	import Modal from '$lib/components/common/Modal.svelte';
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Switch from '$lib/components/common/Switch.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
 	import CheckCircle from '$lib/components/icons/CheckCircle.svelte';
@@ -14,10 +13,8 @@
 	import Lock from '$lib/components/icons/Lock.svelte';
 
 	import { 
-		testLoricaConnectionDirect, 
-		getLoricaModelsDirect,
-		type LoricaAttestationResult,
-		type LoricaModel 
+		testLoricaConnectionDirect,
+		type LoricaAttestationResult
 	} from '$lib/apis/lorica';
 
 	export let onSubmit: (connection: any) => void = () => {};
@@ -29,7 +26,6 @@
 
 	let url = '';
 	let key = '';
-	let enable = true;
 	let tags: string[] = [];
 	let modelId = '';
 	let modelIds: string[] = [];
@@ -37,28 +33,22 @@
 	let loading = false;
 	let verifying = false;
 	let attestationResult: LoricaAttestationResult | null = null;
-	let availableModels: LoricaModel[] = [];
 	let showAttestation = false;
 
 	const verifyLoricaConnection = async () => {
-		if (!url || !key) {
-			toast.error($i18n.t('URL and API Key are required'));
+		if (!url || !key || !modelId) {
+			toast.error($i18n.t('URL, API Key, and Model ID are required'));
 			return;
 		}
 
 		verifying = true;
 		attestationResult = null;
-		availableModels = [];
 
 		try {
 			// Test connection and get attestation
-			const attestation = await testLoricaConnectionDirect(url, key);
+			const attestation = await testLoricaConnectionDirect(url, key, modelId);
 			attestationResult = attestation;
 			showAttestation = true;
-
-			// Get available models
-			const models = await getLoricaModelsDirect(url, key);
-			availableModels = models;
 
 			if (attestation.verified) {
 				toast.success($i18n.t('Lorica connection verified with attestation'));
@@ -111,8 +101,9 @@
 		const loricaConnection = {
 			url,
 			key,
+			modelId,
 			config: {
-				enable: enable,
+				modelId: modelId,
 				tags: tags,
 				model_ids: modelIds,
 				attestation: attestationResult
@@ -124,22 +115,24 @@
 		loading = false;
 		show = false;
 
-		// Reset form
-		url = '';
-		key = '';
-		enable = true;
-		tags = [];
-		modelIds = [];
-		attestationResult = null;
-		availableModels = [];
-		showAttestation = false;
+		// Only reset form when adding a new connection, not when editing
+		if (!edit) {
+			// Reset form
+			url = '';
+			key = '';
+			modelId = '';
+			tags = [];
+			modelIds = [];
+			attestationResult = null;
+			showAttestation = false;
+		}
 	};
 
 	const init = () => {
 		if (connection) {
 			url = connection.url;
 			key = connection.key;
-			enable = connection.config?.enable ?? true;
+			modelId = connection.modelId ?? '';
 			tags = connection.config?.tags ?? [];
 			modelIds = connection.config?.model_ids ?? [];
 			attestationResult = connection.config?.attestation ?? null;
@@ -151,9 +144,6 @@
 		init();
 	}
 
-	onMount(() => {
-		init();
-	});
 </script>
 
 <Modal size="lg" bind:show>
@@ -222,13 +212,33 @@
 						/>
 					</div>
 
+					<!-- Model ID Input -->
+					<div class="flex flex-col w-full">
+						<label
+							for="lorica-model-input"
+							class="mb-0.5 text-xs text-gray-500"
+						>
+							{$i18n.t('Model ID')} <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="lorica-model-input"
+							class="w-full bg-transparent outline-hidden border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+							placeholder="cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic"
+							bind:value={modelId}
+							required
+						/>
+						<div class="mt-1 text-xs text-gray-500">
+							{$i18n.t('Enter the model ID for this Lorica connection')}
+						</div>
+					</div>
+
 					<!-- Connection Test Button -->
 					<div class="flex flex-col w-full">
 						<button
 							type="button"
 							class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition flex items-center justify-center gap-2"
 							on:click={verifyLoricaConnection}
-							disabled={verifying || !url || !key}
+							disabled={verifying || !url || !key || !modelId}
 						>
 							{#if verifying}
 								<Spinner className="size-4" />
@@ -287,76 +297,8 @@
 						</div>
 					{/if}
 
-					<!-- Available Models -->
-					{#if availableModels.length > 0}
-						<div class="border rounded-lg p-4 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
-							<div class="flex items-center gap-2 mb-2">
-								<CheckCircle className="size-5 text-blue-600 dark:text-blue-400" />
-								<span class="font-medium text-blue-800 dark:text-blue-200">
-									{$i18n.t('Available Models')} ({availableModels.length})
-								</span>
-							</div>
-							<div class="space-y-1 max-h-32 overflow-y-auto">
-								{#each availableModels as model}
-									<div class="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded text-xs">
-										<span class="font-medium">{model.name}</span>
-										<span class="text-gray-500">{model.id}</span>
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/if}
 
-					<!-- Model Selection -->
-					<div class="flex flex-col w-full">
-						<label class="mb-0.5 text-xs text-gray-500">
-							{$i18n.t('Model ID (Optional)')}
-						</label>
-						<div class="flex gap-2">
-							<input
-								class="flex-1 bg-transparent outline-hidden"
-								placeholder="Enter model ID"
-								bind:value={modelId}
-								on:keydown={(e) => {
-									if (e.key === 'Enter') {
-										e.preventDefault();
-										addModelHandler();
-									}
-								}}
-							/>
-							<button
-								type="button"
-								class="px-3 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-xs"
-								on:click={addModelHandler}
-								disabled={!modelId}
-							>
-								{$i18n.t('Add')}
-							</button>
-						</div>
-						
-						{#if modelIds.length > 0}
-							<div class="mt-2 space-y-1">
-								{#each modelIds as model, index}
-									<div class="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
-										<span>{model}</span>
-										<button
-											type="button"
-											class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
-											on:click={() => removeModelHandler(index)}
-										>
-											<XMark className="size-3" />
-										</button>
-									</div>
-								{/each}
-							</div>
-						{/if}
-					</div>
 
-					<!-- Enable Switch -->
-					<div class="flex w-full justify-between items-center">
-						<div class="text-xs text-gray-500">{$i18n.t('Enable Connection')}</div>
-						<Switch state={enable} on:change={(e) => { enable = e.detail === 'checked'; }} />
-					</div>
 				</div>
 
 				<!-- Submit Button -->
@@ -384,7 +326,7 @@
 					<button
 						type="submit"
 						class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center gap-2"
-						disabled={loading}
+						disabled={loading || !url || !key || !modelId}
 					>
 						{#if loading}
 							<Spinner className="size-4" />

@@ -6,6 +6,7 @@ Based on the working test pattern from test.py
 import asyncio
 import json
 import logging
+from datetime import datetime
 from typing import AsyncGenerator, Dict, Any, Optional, List
 from urllib.parse import urljoin
 
@@ -23,9 +24,10 @@ class AsyncLoricaSession:
     Based on the working test pattern from test.py
     """
     
-    def __init__(self, base_url: str, api_key: str):
+    def __init__(self, base_url: str, api_key: str, model_id: str = None):
         self.base_url = base_url.rstrip('/')
         self.api_key = api_key
+        self.model_id = model_id
         self.session: Optional[ohttp.Session] = None
         self._http_session: Optional[aiohttp.ClientSession] = None
     
@@ -76,11 +78,19 @@ class AsyncLoricaSession:
             if not self.session:
                 await self.initialize()
             
-            # Test connection by making a simple request
-            # This will trigger attestation verification
-            test_response = self.session.get(
-                f"{self.base_url}/v1/models",
-                headers={"Authorization": f"Bearer {self.api_key}"}
+            # Test connection with a simple chat completion request using the provided model
+            if not self.model_id:
+                raise ValueError("Model ID is required for attestation verification")
+                
+            test_response = self.session.post(
+                f"{self.base_url}/v1/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json={
+                    "model": self.model_id,
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "max_tokens": 1,
+                    "stream": False
+                }
             )
             
             if test_response.status_code == 200:
@@ -88,7 +98,7 @@ class AsyncLoricaSession:
                     "verified": True,
                     "attestation": "Lorica OHTTP attestation verified",
                     "trust_level": "verified",
-                    "timestamp": asyncio.get_event_loop().time(),
+                    "timestamp": datetime.now().isoformat(),
                     "service_url": self.base_url
                 }
             else:
@@ -109,40 +119,23 @@ class AsyncLoricaSession:
     async def get_models(self) -> List[Dict[str, Any]]:
         """
         Get available models from the Lorica service.
-        Returns list of model information.
+        Since Lorica API doesn't have a /v1/models endpoint, return the provided model.
         """
         try:
-            if not self.session:
-                await self.initialize()
-            
-            # Use Lorica OHTTP session to get models (as in test.py)
-            response = self.session.get(
-                f"{self.base_url}/v1/models",
-                headers={"Authorization": f"Bearer {self.api_key}"}
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                models = data.get("data", [])
-                
-                # Format models for Open-WebUI compatibility
-                formatted_models = []
-                for model in models:
-                    formatted_models.append({
-                        "id": model.get("id", "unknown"),
-                        "name": model.get("id", "Unknown Model"),  # Use id as name
-                        "description": f"Lorica OHTTP encrypted model: {model.get('id', 'unknown')}",
-                        "context_length": model.get("context_length", 4096),
-                        "provider": "lorica",
-                        "enabled": True,
-                        "lorica_encrypted": True
-                    })
-                
-                return formatted_models
-            else:
-                logger.error(f"Failed to get models: {response.status_code}")
+            if not self.model_id:
                 return []
-                    
+                
+            # Return the provided model ID as the available model
+            return [{
+                "id": self.model_id,
+                "name": self.model_id.split('/')[-1] if '/' in self.model_id else self.model_id,
+                "description": f"Lorica OHTTP encrypted model: {self.model_id}",
+                "context_length": 8192,  # Default context length
+                "provider": "lorica",
+                "enabled": True,
+                "lorica_encrypted": True
+            }]
+                
         except Exception as e:
             logger.error(f"Failed to get models: {e}")
             return []
@@ -229,10 +222,10 @@ async def get_lorica_session(base_url: str, api_key: str) -> AsyncLoricaSession:
     return AsyncLoricaSession(base_url, api_key)
 
 
-async def test_lorica_connection(base_url: str, api_key: str) -> Dict[str, Any]:
+async def test_lorica_connection(base_url: str, api_key: str, model_id: str = None) -> Dict[str, Any]:
     """Test connection to Lorica service."""
     try:
-        async with AsyncLoricaSession(base_url, api_key) as session:
+        async with AsyncLoricaSession(base_url, api_key, model_id) as session:
             # Test attestation
             attestation_result = await session.verify_attestation()
             

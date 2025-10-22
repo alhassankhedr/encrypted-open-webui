@@ -27,6 +27,7 @@ export type LoricaModel = {
 export type LoricaConnectionTestForm = {
 	url: string;
 	key: string;
+	model_id: string;
 };
 
 export type LoricaChatCompletionRequest = {
@@ -308,66 +309,33 @@ export const generateLoricaChatCompletion = async (
 };
 
 // Direct API calls (for testing connections)
-export const getLoricaModelsDirect = async (url: string, key: string): Promise<LoricaModel[]> => {
-	let error = null;
-
-	const res = await fetch(`${url}/v1/models`, {
-		method: 'GET',
+export const getLoricaModelsDirect = async (url: string, key: string, model_id: string): Promise<LoricaModel[]> => {
+	// Use the backend endpoint instead of direct API calls to avoid CORS issues
+	const res = await fetch(`${LORICA_API_BASE_URL}/models_direct`, {
+		method: 'POST',
 		headers: {
 			Accept: 'application/json',
 			'Content-Type': 'application/json',
-			...(key && { authorization: `Bearer ${key}` })
-		}
+			Authorization: `Bearer ${localStorage.token}`
+		},
+		body: JSON.stringify({ url, key, model_id })
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
 		})
 		.catch((err) => {
-			error = `Lorica: ${err?.error?.message ?? 'Network Problem'}`;
-			return { data: [] };
+			throw `${err?.error?.message ?? 'Network Problem'}`;
 		});
 
-	if (error) {
-		throw error;
-	}
-
-	return res.data || [];
+	return res.models || [];
 };
 
 export const testLoricaConnectionDirect = async (
 	url: string,
-	key: string
+	key: string,
+	model_id: string
 ): Promise<LoricaAttestationResult> => {
-	let error = null;
-
-	// Test with a simple models request
-	const res = await fetch(`${url}/v1/models`, {
-		method: 'GET',
-		headers: {
-			Accept: 'application/json',
-			Authorization: `Bearer ${key}`,
-			'Content-Type': 'application/json'
-		}
-	})
-		.then(async (res) => {
-			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.catch((err) => {
-			error = `${err?.error?.message ?? 'Network Problem'}`;
-			return null;
-		});
-
-	if (error) {
-		throw error;
-	}
-
-	// Return a successful attestation result
-	return {
-		verified: true,
-		trust_level: 'high',
-		timestamp: new Date().toISOString(),
-		service_url: url
-	};
+	// Use the existing testLoricaConnection function which goes through the backend
+	return await testLoricaConnection(localStorage.token, { url, key, model_id });
 };
