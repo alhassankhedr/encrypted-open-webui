@@ -1062,6 +1062,53 @@ OPENAI_API_BASE_URL = "https://api.openai.com/v1"
 
 
 ####################################
+# LORICA_API
+####################################
+
+ENABLE_LORICA_API = PersistentConfig(
+    "ENABLE_LORICA_API",
+    "lorica.enable",
+    os.environ.get("ENABLE_LORICA_API", "False").lower() == "true",
+)
+
+LORICA_API_KEY = os.environ.get("LORICA_API_KEY", "")
+LORICA_API_BASE_URL = os.environ.get("LORICA_API_BASE_URL", "")
+
+if LORICA_API_BASE_URL == "":
+    LORICA_API_BASE_URL = ""
+else:
+    if LORICA_API_BASE_URL.endswith("/"):
+        LORICA_API_BASE_URL = LORICA_API_BASE_URL[:-1]
+
+LORICA_API_KEYS = os.environ.get("LORICA_API_KEYS", "")
+LORICA_API_KEYS = LORICA_API_KEYS if LORICA_API_KEYS != "" else LORICA_API_KEY
+
+LORICA_API_KEYS = [url.strip() for url in LORICA_API_KEYS.split(";")]
+LORICA_API_KEYS = PersistentConfig(
+    "LORICA_API_KEYS", "lorica.api_keys", LORICA_API_KEYS
+)
+
+LORICA_API_BASE_URLS = os.environ.get("LORICA_API_BASE_URLS", "")
+LORICA_API_BASE_URLS = (
+    LORICA_API_BASE_URLS if LORICA_API_BASE_URLS != "" else LORICA_API_BASE_URL
+)
+
+LORICA_API_BASE_URLS = [
+    url.strip() if url != "" else ""
+    for url in LORICA_API_BASE_URLS.split(";")
+]
+LORICA_API_BASE_URLS = PersistentConfig(
+    "LORICA_API_BASE_URLS", "lorica.api_base_urls", LORICA_API_BASE_URLS
+)
+
+LORICA_API_CONFIGS = PersistentConfig(
+    "LORICA_API_CONFIGS",
+    "lorica.api_configs",
+    {},
+)
+
+
+####################################
 # MODELS
 ####################################
 

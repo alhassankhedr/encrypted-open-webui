@@ -6,6 +6,7 @@
 
 	import { getOllamaConfig, updateOllamaConfig } from '$lib/apis/ollama';
 	import { getOpenAIConfig, updateOpenAIConfig, getOpenAIModels } from '$lib/apis/openai';
+	import { getLoricaConfig, updateLoricaConfig } from '$lib/apis/lorica';
 	import { getModels as _getModels, getBackendConfig } from '$lib/apis';
 	import { getConnectionsConfig, setConnectionsConfig } from '$lib/apis/configs';
 
@@ -19,6 +20,8 @@
 	import OpenAIConnection from './Connections/OpenAIConnection.svelte';
 	import AddConnectionModal from '$lib/components/AddConnectionModal.svelte';
 	import OllamaConnection from './Connections/OllamaConnection.svelte';
+	import LoricaConnection from './Connections/LoricaConnection.svelte';
+	import AddLoricaConnectionModal from './Connections/AddLoricaConnectionModal.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -40,14 +43,20 @@
 	let OPENAI_API_BASE_URLS = [''];
 	let OPENAI_API_CONFIGS = {};
 
+	let LORICA_API_KEYS = [''];
+	let LORICA_API_BASE_URLS = [''];
+	let LORICA_API_CONFIGS = {};
+
 	let ENABLE_OPENAI_API: null | boolean = null;
 	let ENABLE_OLLAMA_API: null | boolean = null;
+	let ENABLE_LORICA_API: null | boolean = null;
 
 	let connectionsConfig = null;
 
 	let pipelineUrls = {};
 	let showAddOpenAIConnectionModal = false;
 	let showAddOllamaConnectionModal = false;
+	let showAddLoricaConnectionModal = false;
 
 	const updateOpenAIHandler = async () => {
 		if (ENABLE_OPENAI_API !== null) {
@@ -106,6 +115,48 @@
 		}
 	};
 
+	const updateLoricaHandler = async () => {
+		if (ENABLE_LORICA_API !== null) {
+			// Ensure arrays are initialized
+			if (!LORICA_API_BASE_URLS) LORICA_API_BASE_URLS = [''];
+			if (!LORICA_API_KEYS) LORICA_API_KEYS = [''];
+			if (!LORICA_API_CONFIGS) LORICA_API_CONFIGS = {};
+			
+			// Remove trailing slashes
+			LORICA_API_BASE_URLS = LORICA_API_BASE_URLS.map((url) => url.replace(/\/$/, ''));
+
+			// Check if API KEYS length is same than API URLS length
+			if (LORICA_API_KEYS.length !== LORICA_API_BASE_URLS.length) {
+				// if there are more keys than urls, remove the extra keys
+				if (LORICA_API_KEYS.length > LORICA_API_BASE_URLS.length) {
+					LORICA_API_KEYS = LORICA_API_KEYS.slice(0, LORICA_API_BASE_URLS.length);
+				}
+
+				// if there are more urls than keys, add empty keys
+				if (LORICA_API_KEYS.length < LORICA_API_BASE_URLS.length) {
+					const diff = LORICA_API_BASE_URLS.length - LORICA_API_KEYS.length;
+					for (let i = 0; i < diff; i++) {
+						LORICA_API_KEYS.push('');
+					}
+				}
+			}
+
+			const res = await updateLoricaConfig(localStorage.token, {
+				ENABLE_LORICA_API: ENABLE_LORICA_API,
+				LORICA_API_BASE_URLS: LORICA_API_BASE_URLS,
+				LORICA_API_KEYS: LORICA_API_KEYS,
+				LORICA_API_CONFIGS: LORICA_API_CONFIGS
+			}).catch((error) => {
+				toast.error(`${error}`);
+			});
+
+			if (res) {
+				toast.success($i18n.t('Lorica API settings updated'));
+				await models.set(await getModels());
+			}
+		}
+	};
+
 	const updateConnectionsHandler = async () => {
 		const res = await setConnectionsConfig(localStorage.token, connectionsConfig).catch((error) => {
 			toast.error(`${error}`);
@@ -136,10 +187,38 @@
 		await updateOllamaHandler();
 	};
 
+	const addLoricaConnectionHandler = async (connection) => {
+		// Ensure arrays are initialized
+		if (!LORICA_API_BASE_URLS) LORICA_API_BASE_URLS = [''];
+		if (!LORICA_API_KEYS) LORICA_API_KEYS = [''];
+		if (!LORICA_API_CONFIGS) LORICA_API_CONFIGS = {};
+		
+		// Filter out empty strings before adding new connection
+		const filteredUrls = LORICA_API_BASE_URLS.filter(url => url && url.trim() !== '');
+		const filteredKeys = LORICA_API_KEYS.filter((key, index) => LORICA_API_BASE_URLS[index] && LORICA_API_BASE_URLS[index].trim() !== '');
+		
+		// Create new config object with only valid connections
+		const newConfig = {};
+		filteredUrls.forEach((url, index) => {
+			newConfig[index] = LORICA_API_CONFIGS[index] || {};
+		});
+		
+		// Add new connection
+		LORICA_API_BASE_URLS = [...filteredUrls, connection.url];
+		LORICA_API_KEYS = [...filteredKeys, connection.key];
+		LORICA_API_CONFIGS = {
+			...newConfig,
+			[filteredUrls.length]: connection.config || {}
+		};
+
+		await updateLoricaHandler();
+	};
+
 	onMount(async () => {
 		if ($user?.role === 'admin') {
 			let ollamaConfig = {};
 			let openaiConfig = {};
+			let loricaConfig = {};
 
 			await Promise.all([
 				(async () => {
@@ -149,16 +228,24 @@
 					openaiConfig = await getOpenAIConfig(localStorage.token);
 				})(),
 				(async () => {
+					loricaConfig = await getLoricaConfig(localStorage.token);
+				})(),
+				(async () => {
 					connectionsConfig = await getConnectionsConfig(localStorage.token);
 				})()
 			]);
 
 			ENABLE_OPENAI_API = openaiConfig.ENABLE_OPENAI_API;
 			ENABLE_OLLAMA_API = ollamaConfig.ENABLE_OLLAMA_API;
+			ENABLE_LORICA_API = loricaConfig.enabled;
 
 			OPENAI_API_BASE_URLS = openaiConfig.OPENAI_API_BASE_URLS;
 			OPENAI_API_KEYS = openaiConfig.OPENAI_API_KEYS;
 			OPENAI_API_CONFIGS = openaiConfig.OPENAI_API_CONFIGS;
+
+			LORICA_API_BASE_URLS = loricaConfig.base_urls || [''];
+			LORICA_API_KEYS = loricaConfig.api_keys || [''];
+			LORICA_API_CONFIGS = loricaConfig.configs || {};
 
 			OLLAMA_BASE_URLS = ollamaConfig.OLLAMA_BASE_URLS;
 			OLLAMA_API_CONFIGS = ollamaConfig.OLLAMA_API_CONFIGS;
@@ -191,12 +278,29 @@
 					}
 				}
 			}
+
+				if (ENABLE_LORICA_API) {
+					// get url and idx
+					for (const [idx, url] of LORICA_API_BASE_URLS.entries()) {
+						if (!LORICA_API_CONFIGS[idx]) {
+							// Legacy support, url as key
+							LORICA_API_CONFIGS[idx] = LORICA_API_CONFIGS[url] || {};
+						}
+					}
+					// Ensure all config objects exist
+					LORICA_API_BASE_URLS.forEach((_, idx) => {
+						if (!LORICA_API_CONFIGS[idx]) {
+							LORICA_API_CONFIGS[idx] = {};
+						}
+					});
+				}
 		}
 	});
 
 	const submitHandler = async () => {
 		updateOpenAIHandler();
 		updateOllamaHandler();
+		updateLoricaHandler();
 
 		dispatch('save');
 
@@ -215,9 +319,14 @@
 	onSubmit={addOllamaConnectionHandler}
 />
 
+<AddLoricaConnectionModal
+	bind:show={showAddLoricaConnectionModal}
+	onSubmit={addLoricaConnectionHandler}
+/>
+
 <form class="flex flex-col h-full justify-between text-sm" on:submit|preventDefault={submitHandler}>
 	<div class=" overflow-y-scroll scrollbar-hidden h-full">
-		{#if ENABLE_OPENAI_API !== null && ENABLE_OLLAMA_API !== null && connectionsConfig !== null}
+		{#if ENABLE_OPENAI_API !== null && ENABLE_OLLAMA_API !== null && ENABLE_LORICA_API !== null && connectionsConfig !== null}
 			<div class="mb-3.5">
 				<div class=" mb-2.5 text-base font-medium">{$i18n.t('General')}</div>
 
@@ -356,6 +465,80 @@
 								>
 									{$i18n.t('Click here for help.')}
 								</a>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<div class=" my-2">
+					<div class="flex justify-between items-center text-sm mb-2">
+						<div class="  font-medium">{$i18n.t('Lorica API')}</div>
+
+						<div class="mt-1">
+							<Switch
+								bind:state={ENABLE_LORICA_API}
+								on:change={async () => {
+									updateLoricaHandler();
+								}}
+							/>
+						</div>
+					</div>
+
+					{#if ENABLE_LORICA_API}
+						<div class="">
+							<div class="flex justify-between items-center">
+								<div class="font-medium text-xs">{$i18n.t('Manage Lorica API Connections')}</div>
+
+								<Tooltip content={$i18n.t(`Add Connection`)}>
+									<button
+										class="px-1"
+										on:click={() => {
+											showAddLoricaConnectionModal = true;
+										}}
+										type="button"
+									>
+										<Plus />
+									</button>
+								</Tooltip>
+							</div>
+
+							{#if (LORICA_API_BASE_URLS || []).filter(url => url && url.trim() !== '').length > 0}
+								<div class="flex w-full gap-1.5">
+									<div class="flex-1 flex flex-col gap-1.5 mt-1.5">
+										{#each (LORICA_API_BASE_URLS || []).filter(url => url && url.trim() !== '') as url, idx}
+											<LoricaConnection
+												bind:url={LORICA_API_BASE_URLS[idx]}
+												bind:key={LORICA_API_KEYS[idx]}
+												bind:config={LORICA_API_CONFIGS[idx]}
+												{idx}
+												onSubmit={() => {
+													updateLoricaHandler();
+												}}
+												onDelete={() => {
+													// Ensure arrays are initialized
+													if (!LORICA_API_BASE_URLS) LORICA_API_BASE_URLS = [''];
+													if (!LORICA_API_KEYS) LORICA_API_KEYS = [''];
+													if (!LORICA_API_CONFIGS) LORICA_API_CONFIGS = {};
+													
+													LORICA_API_BASE_URLS = LORICA_API_BASE_URLS.filter((url, urlIdx) => idx !== urlIdx);
+													LORICA_API_KEYS = LORICA_API_KEYS.filter((key, keyIdx) => idx !== keyIdx);
+
+													let newConfig = {};
+													LORICA_API_BASE_URLS.forEach((url, newIdx) => {
+														newConfig[newIdx] =
+															LORICA_API_CONFIGS[newIdx < idx ? newIdx : newIdx + 1];
+													});
+													LORICA_API_CONFIGS = newConfig;
+													updateLoricaHandler();
+												}}
+											/>
+										{/each}
+									</div>
+								</div>
+							{/if}
+
+							<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+								{$i18n.t('Lorica provides OHTTP encryption and confidential computing attestation for secure AI interactions.')}
 							</div>
 						</div>
 					{/if}
